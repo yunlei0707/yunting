@@ -199,10 +199,49 @@ function loadState() {
     if (!saved) return structuredClone(defaultState);
     const parsed = JSON.parse(saved);
     if (!parsed.nodes || !parsed.connections) return structuredClone(defaultState);
-    return parsed;
+    return normalizeState(parsed);
   } catch {
     return structuredClone(defaultState);
   }
+}
+
+function normalizeState(saved) {
+  const fallback = structuredClone(defaultState);
+  const savedNodes = Array.isArray(saved.nodes) && saved.nodes.length ? saved.nodes : fallback.nodes;
+  const nodes = savedNodes.map((node, index) => ({
+    id: node.id || `b${Date.now()}${index}`,
+    title: node.title || node.cn || node.englishTitle || "未命名模块",
+    englishTitle: node.englishTitle || node.title || "",
+    desc: node.desc || "",
+    type: node.type || "control",
+    color: node.color || colorFor(node.type || "control"),
+    x: Number.isFinite(Number(node.x)) ? Number(node.x) : 120 + index * 36,
+    y: Number.isFinite(Number(node.y)) ? Number(node.y) : 80 + index * 26,
+    enabled: node.enabled !== false,
+    params: node.params && typeof node.params === "object" ? node.params : {},
+  }));
+  const nodeIds = new Set(nodes.map((node) => node.id));
+  const connections = Array.isArray(saved.connections)
+    ? saved.connections.filter(([from, to]) => nodeIds.has(from) && nodeIds.has(to))
+    : fallback.connections;
+
+  return {
+    ...fallback,
+    ...saved,
+    projectName: saved.projectName || fallback.projectName,
+    activeEvent: events.some((event) => event.id === saved.activeEvent) ? saved.activeEvent : fallback.activeEvent,
+    mode: saved.mode === "Custom" ? "Custom" : "System",
+    selectedId: nodeIds.has(saved.selectedId) ? saved.selectedId : nodes[0]?.id || null,
+    nodes,
+    connections,
+    constants: Array.isArray(saved.constants) ? saved.constants : [],
+    variables: Array.isArray(saved.variables) ? saved.variables : [],
+    history: Array.isArray(saved.history) ? saved.history : fallback.history,
+    projectOptions: {
+      ...fallback.projectOptions,
+      ...(saved.projectOptions && typeof saved.projectOptions === "object" ? saved.projectOptions : {}),
+    },
+  };
 }
 
 function saveState(message) {
@@ -227,7 +266,7 @@ function render() {
           ${menu("选项", ["当前项目选项", "项目说明", "模块 ID 规范化", "全局选项"])}
           ${menu("帮助", ["使用说明", "社区论坛", "更新历史"])}
         </nav>
-        <div class="fx-links">Instructions&nbsp;&nbsp; How To&nbsp;&nbsp; Forum&nbsp;&nbsp; <button id="openBreakoutAgent" class="ai-link">XAUUSD AI突破分析</button></div>
+        <div class="fx-links">Instructions&nbsp;&nbsp; How To&nbsp;&nbsp; Forum&nbsp;&nbsp; <button type="button" id="openBreakoutAgent" class="ai-link" data-ai-breakout>XAUUSD AI突破分析</button></div>
         <div class="fx-plan">Free Limited</div>
       </header>
 
@@ -398,7 +437,11 @@ function bind() {
   document.querySelectorAll("[data-menu]").forEach((btn) => btn.addEventListener("click", () => handleMenu(btn.dataset.menu)));
   document.getElementById("exportMq4").addEventListener("click", () => download(`${state.projectName}.mq4`, generateMq4(), "text/plain"));
   document.getElementById("exportEx4").addEventListener("click", () => toast(".ex4 需要 MetaTrader 编译环境，已为你生成 .mq4 源码。"));
-  document.getElementById("openBreakoutAgent").addEventListener("click", openBreakoutAgent);
+  const aiButton = document.getElementById("openBreakoutAgent");
+  if (aiButton) aiButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    openBreakoutAgent();
+  });
   document.getElementById("editConstants").addEventListener("click", () => openListDialog("constants", "Constants (Inputs)"));
   document.getElementById("editVariables").addEventListener("click", () => openListDialog("variables", "Variables"));
   document.addEventListener("click", (event) => {
@@ -1066,5 +1109,14 @@ function bollinger(values, period, deviation) {
 function fmt(value) {
   return Number.isFinite(value) ? Number(value).toFixed(2) : "-";
 }
+
+document.addEventListener("click", (event) => {
+  if (!event.target.closest("[data-ai-breakout], #openBreakoutAgent")) return;
+  event.preventDefault();
+  event.stopPropagation();
+  openBreakoutAgent();
+}, true);
+
+window.openBreakoutAgent = openBreakoutAgent;
 
 render();

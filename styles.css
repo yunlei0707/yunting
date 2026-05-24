@@ -991,6 +991,38 @@ select {
   box-shadow: 0 2px 6px rgba(0,0,0,.45);
 }
 
+.fx-actionbar {
+  position: absolute;
+  top: 80px;
+  left: 250px;
+  z-index: 14;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  max-width: calc(100vw - 470px);
+  overflow: auto;
+}
+
+.fx-actionbar button {
+  min-height: 30px;
+  white-space: nowrap;
+  border: 1px solid #111;
+  color: #fff;
+  background: linear-gradient(#278b80, #124c47);
+  padding: 4px 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.42);
+}
+
+.fx-actionbar button:nth-child(2),
+.fx-actionbar button:nth-child(3) {
+  background: linear-gradient(#865fc4, #3f286e);
+}
+
+.fx-actionbar button:nth-child(4),
+.fx-actionbar button:nth-child(5) {
+  background: linear-gradient(#656565, #292929);
+}
+
 .fx-events {
   position: absolute;
   top: 45px;
@@ -1064,8 +1096,8 @@ select {
 .fx-main {
   display: grid;
   grid-template-columns: 240px minmax(720px, 1fr) 310px;
-  height: calc(100vh - 76px);
-  padding-top: 47px;
+  height: calc(100vh - 113px);
+  padding-top: 84px;
 }
 
 .fx-library {
@@ -1209,10 +1241,13 @@ select {
   inset: 0;
   width: 100%;
   height: 100%;
+  z-index: 0;
+  pointer-events: none;
 }
 
 .fx-node {
   position: absolute;
+  z-index: 2;
   min-width: 150px;
   min-height: 50px;
   border: 0;
@@ -1222,6 +1257,58 @@ select {
   box-shadow: 0 4px 9px rgba(0,0,0,.45);
   padding: 8px 12px 8px 26px;
   text-align: left;
+}
+
+.canvas-hint {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+  z-index: 1;
+  width: min(520px, calc(100% - 36px));
+  background: rgba(26, 29, 30, .72);
+  border: 1px solid rgba(255,255,255,.18);
+  color: #e8eeee;
+  padding: 10px 12px;
+  pointer-events: none;
+}
+
+.canvas-hint strong,
+.canvas-hint span {
+  display: block;
+}
+
+.canvas-hint strong {
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.canvas-hint span {
+  color: #b9c5c7;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.interaction-status {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 4;
+  min-width: 180px;
+  max-width: 360px;
+  color: #fff;
+  background: rgba(20, 77, 67, .92);
+  border: 1px solid #2a8778;
+  padding: 9px 12px;
+  font-size: 12px;
+  opacity: .72;
+  transform: translateY(0);
+  transition: .18s ease;
+}
+
+.interaction-status.active {
+  opacity: 1;
+  transform: translateY(-4px);
+  box-shadow: 0 10px 24px rgba(0,0,0,.32);
 }
 
 .fx-node .node-id {

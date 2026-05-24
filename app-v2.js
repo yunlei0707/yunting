@@ -275,6 +275,14 @@ function render() {
         <button id="exportEx4">.ex4</button>
       </section>
 
+      <section class="fx-actionbar">
+        <button type="button" data-quick="analyze">运行 XAUUSD AI 分析</button>
+        <button type="button" data-quick="buy-template">生成黄金突破多单模板</button>
+        <button type="button" data-quick="sell-template">生成黄金突破空单模板</button>
+        <button type="button" data-quick="clear">清空画布</button>
+        <button type="button" data-quick="reset">重置缓存</button>
+      </section>
+
       <section class="fx-events">
         <span>Events</span>
         ${events.map((evt) => `<button class="fx-event ${evt.id === state.activeEvent ? "active" : ""}" title="${evt.desc}" data-event="${evt.id}">${evt.label}${evt.id === "tick" ? `<em>${state.nodes.length}</em>` : ""}</button>`).join("")}
@@ -300,7 +308,12 @@ function render() {
 
         <section class="fx-canvas" id="canvas">
           <canvas id="lineCanvas"></canvas>
+          <div class="canvas-hint">
+            <strong>交互已启用</strong>
+            <span>左侧模块可点击添加，也可拖入画布；点击节点选中，拖动节点移动，双击编辑，右键打开菜单。</span>
+          </div>
           ${state.nodes.map(renderNode).join("")}
+          <div id="interactionStatus" class="interaction-status">等待操作</div>
           <div id="contextMenu" class="context-menu hidden">
             <button data-action="rename">Edit Title</button>
             <button data-action="toggle">On/Off</button>
@@ -428,6 +441,8 @@ function bind() {
   document.querySelectorAll(".fx-node").forEach((el) => {
     el.addEventListener("click", () => {
       state.selectedId = el.dataset.node;
+      const node = state.nodes.find((item) => item.id === el.dataset.node);
+      showInteractionStatus(`已选中：${node?.title || "模块"}`);
       saveState();
     });
     el.addEventListener("dblclick", () => openBlockDialog(el.dataset.node));
@@ -435,6 +450,7 @@ function bind() {
     makeNodeDraggable(el);
   });
   document.querySelectorAll("[data-menu]").forEach((btn) => btn.addEventListener("click", () => handleMenu(btn.dataset.menu)));
+  document.querySelectorAll("[data-quick]").forEach((btn) => btn.addEventListener("click", () => handleQuickAction(btn.dataset.quick)));
   document.getElementById("exportMq4").addEventListener("click", () => download(`${state.projectName}.mq4`, generateMq4(), "text/plain"));
   document.getElementById("exportEx4").addEventListener("click", () => toast(".ex4 需要 MetaTrader 编译环境，已为你生成 .mq4 源码。"));
   const aiButton = document.getElementById("openBreakoutAgent");
@@ -447,6 +463,7 @@ function bind() {
   document.addEventListener("click", (event) => {
     if (!event.target.closest(".context-menu")) document.getElementById("contextMenu")?.classList.add("hidden");
   }, { once: true });
+  showInteractionStatus("交互已加载，可以点击左侧模块或运行 AI 分析");
 }
 
 function addBlock(source, x, y) {
@@ -455,6 +472,7 @@ function addBlock(source, x, y) {
   state.nodes.push(node);
   if (selected) state.connections.push([selected.id, node.id]);
   state.selectedId = node.id;
+  showInteractionStatus(`已添加模块：${node.title}`);
   saveState(`添加模块：${node.title}`);
 }
 
@@ -498,6 +516,7 @@ function deleteNode(id) {
   state.nodes = state.nodes.filter((node) => node.id !== id);
   state.connections = state.connections.filter(([from, to]) => from !== id && to !== id);
   state.selectedId = state.nodes[0]?.id || null;
+  showInteractionStatus("已删除模块");
   saveState("删除模块");
 }
 
@@ -522,6 +541,7 @@ function makeNodeDraggable(el) {
     if (!start) return;
     start = null;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    showInteractionStatus("节点位置已保存");
   });
 }
 
@@ -597,6 +617,83 @@ function openListDialog(key, title) {
     saveState(`新增 ${title}`);
     openListDialog(key, title);
   };
+}
+
+function handleQuickAction(action) {
+  if (action === "analyze") {
+    openBreakoutAgent();
+    return;
+  }
+  if (action === "buy-template") {
+    applyBreakoutTemplate("Buy");
+    return;
+  }
+  if (action === "sell-template") {
+    applyBreakoutTemplate("Sell");
+    return;
+  }
+  if (action === "clear") {
+    clearCanvas();
+    return;
+  }
+  if (action === "reset") {
+    resetLocalWorkspace();
+  }
+}
+
+function applyBreakoutTemplate(direction) {
+  const isBuy = direction === "Buy";
+  const template = [
+    createNode(block("No trade", "无持仓检查", "没有持仓时才允许寻找新机会", "check", { symbol: "Current" }), 90, 80),
+    createNode(block("News filter", "重大事件过滤", "非农、CPI、FOMC、降息前后禁止交易", "news", { before: 60, after: 90, impact: "高/极高" }), 320, 80),
+    createNode(block("Moving Average", "EMA50 趋势线", "短期趋势过滤", "indicator", { indicator: "Moving Average", period: 50, maShift: 0, maMethod: "Exponential", appliedPrice: "Close price", shift: 0 }), 190, 230),
+    createNode(block("Moving Average", "EMA200 趋势线", "长期趋势过滤", "indicator", { indicator: "Moving Average", period: 200, maShift: 0, maMethod: "Exponential", appliedPrice: "Close price", shift: 0 }), 430, 230),
+    createNode(block("Average Directional Movement Index", "ADX 强度过滤", "ADX(14)>25 才允许突破交易", "indicator", { indicator: "Average Directional Movement Index", period: 14, appliedPrice: "Close price", mode: "MAIN", shift: 0 }), 670, 230),
+    createNode(block("Bollinger Bands", "布林带突破过滤", "收盘价在布林带外且带宽扩张", "indicator", { indicator: "Bollinger Bands", period: 20, deviation: 2, bandsShift: 0, appliedPrice: "Close price", mode: isBuy ? "UPPER" : "LOWER", shift: 0 }), 300, 380),
+    createNode(block("MACD", "MACD 动能确认", "MACD 与柱体方向一致", "indicator", { indicator: "MACD", fastEMA: 12, slowEMA: 26, signalSMA: 9, appliedPrice: "Close price", mode: "MAIN", shift: 0 }), 540, 380),
+    createNode(block(isBuy ? "Buy now" : "Sell now", isBuy ? "BUY BREAKOUT 入场" : "SELL BREAKOUT 入场", "按 ATR 动态止损止盈执行突破交易", "trade", { direction: isBuy ? "BUY" : "SELL", lots: "Auto", stopLoss: "ATR*1.5", takeProfit: "TP1 ATR*2 / TP2 ATR*4" }), 420, 540),
+  ];
+  state.nodes = template;
+  state.connections = [
+    [template[0].id, template[1].id],
+    [template[1].id, template[2].id],
+    [template[1].id, template[3].id],
+    [template[2].id, template[4].id],
+    [template[3].id, template[4].id],
+    [template[4].id, template[5].id],
+    [template[5].id, template[6].id],
+    [template[6].id, template[7].id],
+  ];
+  state.selectedId = template[7].id;
+  state.projectName = isBuy ? "XAUUSD 趋势突破多单 EA" : "XAUUSD 趋势突破空单 EA";
+  saveState(`生成${isBuy ? "多单" : "空单"}突破模板`);
+  toast(`已生成 ${isBuy ? "BUY" : "SELL"} BREAKOUT 策略模板`);
+}
+
+function clearCanvas() {
+  if (!confirm("确定清空当前画布模块吗？")) return;
+  state.nodes = [];
+  state.connections = [];
+  state.selectedId = null;
+  saveState("清空画布");
+  toast("画布已清空，可从左侧重新添加模块");
+}
+
+function resetLocalWorkspace() {
+  if (!confirm("确定重置本浏览器保存的项目缓存吗？")) return;
+  localStorage.removeItem(STORAGE_KEY);
+  state = structuredClone(defaultState);
+  saveState("重置缓存并恢复默认模板");
+  toast("缓存已重置，交互状态已恢复");
+}
+
+function showInteractionStatus(message) {
+  const el = document.getElementById("interactionStatus");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.add("active");
+  clearTimeout(showInteractionStatus.timer);
+  showInteractionStatus.timer = setTimeout(() => el.classList.remove("active"), 1800);
 }
 
 function handleMenu(item) {

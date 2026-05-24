@@ -1,4 +1,4 @@
-const STORAGE_KEY = "ea-studio-fxdreema-cn-v1";
+const STORAGE_KEY = "ea-studio-fxdreema-cn-v2-templates";
 
 const events = [
   { id: "init", label: "on Init", desc: "EA 加载时执行一次" },
@@ -190,6 +190,122 @@ const defaultState = {
   },
 };
 
+const strategyTemplates = [
+  {
+    id: "single-ma",
+    name: "经典单均线",
+    desc: "价格上穿 MA → 开多；价格下穿 MA → 平多。",
+    projectName: "经典单均线 EA",
+    nodes: [
+      nodeSpec("No trade", "无持仓检查", "没有持仓时才允许开新仓", "check", { symbol: "Current" }, 100, 80),
+      nodeSpec("Moving Average", "MA14", "单均线，周期 14", "indicator", { indicator: "Moving Average", period: 14, maShift: 0, maMethod: "Exponential", appliedPrice: "Close price", shift: 0 }, 310, 80),
+      nodeSpec("Condition", "价格上穿 MA", "Close cross above MA14", "condition", { left: "Close", operator: "cross above", right: "MA14" }, 215, 230),
+      nodeSpec("Buy now", "开多", "价格上穿 MA 后开多", "trade", { direction: "BUY", lots: "Auto", stopLoss: 300, takeProfit: 900 }, 215, 380),
+      nodeSpec("Condition", "价格下穿 MA", "Close cross below MA14", "condition", { left: "Close", operator: "cross below", right: "MA14" }, 505, 230),
+      nodeSpec("Close trades", "平多", "价格下穿 MA 后平多仓", "action", { target: "BUY trades" }, 505, 380),
+    ],
+    connections: [[0, 1], [1, 2], [2, 3], [1, 4], [4, 5]],
+  },
+  {
+    id: "double-ma",
+    name: "双均线金死叉",
+    desc: "快MA上穿慢MA → 开多；快MA下穿慢MA → 开空。",
+    projectName: "双均线金死叉 EA",
+    nodes: [
+      nodeSpec("No trade", "无持仓检查", "避免重复开仓", "check", { symbol: "Current" }, 90, 80),
+      nodeSpec("Moving Average", "快 MA14", "快均线，周期 14", "indicator", { indicator: "Moving Average", period: 14, maShift: 0, maMethod: "Exponential", appliedPrice: "Close price", shift: 0 }, 290, 80),
+      nodeSpec("Moving Average", "慢 MA50", "慢均线，周期 50", "indicator", { indicator: "Moving Average", period: 50, maShift: 0, maMethod: "Exponential", appliedPrice: "Close price", shift: 0 }, 500, 80),
+      nodeSpec("Condition", "快线上穿慢线", "MA14 cross above MA50", "condition", { left: "MA14", operator: "cross above", right: "MA50" }, 240, 250),
+      nodeSpec("Buy now", "开多", "金叉开多", "trade", { direction: "BUY", lots: "Auto", stopLoss: 350, takeProfit: 1050 }, 240, 405),
+      nodeSpec("Condition", "快线下穿慢线", "MA14 cross below MA50", "condition", { left: "MA14", operator: "cross below", right: "MA50" }, 550, 250),
+      nodeSpec("Sell now", "开空", "死叉开空", "trade", { direction: "SELL", lots: "Auto", stopLoss: 350, takeProfit: 1050 }, 550, 405),
+    ],
+    connections: [[0, 1], [0, 2], [1, 3], [2, 3], [3, 4], [1, 5], [2, 5], [5, 6]],
+  },
+  {
+    id: "rsi-overbought-oversold",
+    name: "RSI 超买超卖",
+    desc: "RSI < 30 → 开多；RSI > 70 → 开空；RSI 回到50 → 平仓。",
+    projectName: "RSI 超买超卖 EA",
+    nodes: [
+      nodeSpec("Relative Strength Index", "RSI14", "RSI 周期 14", "indicator", { indicator: "Relative Strength Index", period: 14, appliedPrice: "Close price", shift: 0 }, 120, 80),
+      nodeSpec("Condition", "RSI < 30", "超卖开多", "condition", { left: "RSI14", operator: "<", right: 30 }, 95, 230),
+      nodeSpec("Buy now", "开多", "RSI 低于 30 开多", "trade", { direction: "BUY", lots: "Auto", stopLoss: 300, takeProfit: 800 }, 95, 380),
+      nodeSpec("Condition", "RSI > 70", "超买开空", "condition", { left: "RSI14", operator: ">", right: 70 }, 365, 230),
+      nodeSpec("Sell now", "开空", "RSI 高于 70 开空", "trade", { direction: "SELL", lots: "Auto", stopLoss: 300, takeProfit: 800 }, 365, 380),
+      nodeSpec("Condition", "RSI 回到 50", "RSI cross 50", "condition", { left: "RSI14", operator: "cross", right: 50 }, 635, 230),
+      nodeSpec("Close trades", "平仓", "RSI 回到 50 后平仓", "action", { target: "All trades" }, 635, 380),
+    ],
+    connections: [[0, 1], [1, 2], [0, 3], [3, 4], [0, 5], [5, 6]],
+  },
+  {
+    id: "bollinger-breakout",
+    name: "布林带突破",
+    desc: "收盘价突破上轨 → 开多；突破下轨 → 开空；回穿中轨 → 平仓。",
+    projectName: "布林带突破 EA",
+    nodes: [
+      nodeSpec("Bollinger Bands", "布林带 20,2", "周期 20，偏差 2", "indicator", { indicator: "Bollinger Bands", period: 20, deviation: 2, bandsShift: 0, appliedPrice: "Close price", mode: "MAIN", shift: 0 }, 130, 80),
+      nodeSpec("Condition", "突破上轨", "Close > Upper Band", "condition", { left: "Close", operator: ">", right: "Bollinger Upper" }, 95, 230),
+      nodeSpec("Buy now", "开多", "收盘价突破上轨开多", "trade", { direction: "BUY", lots: "Auto", stopLoss: 400, takeProfit: 1200 }, 95, 380),
+      nodeSpec("Condition", "突破下轨", "Close < Lower Band", "condition", { left: "Close", operator: "<", right: "Bollinger Lower" }, 365, 230),
+      nodeSpec("Sell now", "开空", "收盘价突破下轨开空", "trade", { direction: "SELL", lots: "Auto", stopLoss: 400, takeProfit: 1200 }, 365, 380),
+      nodeSpec("Condition", "回穿中轨", "Close cross middle band", "condition", { left: "Close", operator: "cross", right: "Bollinger Middle" }, 635, 230),
+      nodeSpec("Close trades", "平仓", "价格回穿中轨后平仓", "action", { target: "All trades" }, 635, 380),
+    ],
+    connections: [[0, 1], [1, 2], [0, 3], [3, 4], [0, 5], [5, 6]],
+  },
+  {
+    id: "macd-zero-cross",
+    name: "MACD 零轴金叉",
+    desc: "MACD金叉且主线>0 → 开多；死叉且主线<0 → 开空。",
+    projectName: "MACD 零轴金叉 EA",
+    nodes: [
+      nodeSpec("MACD", "MACD 12,26,9", "标准 MACD 参数", "indicator", { indicator: "MACD", fastEMA: 12, slowEMA: 26, signalSMA: 9, appliedPrice: "Close price", mode: "MAIN", shift: 0 }, 170, 80),
+      nodeSpec("Condition", "MACD 金叉且主线>0", "MACD main cross above signal and main > 0", "condition", { left: "MACD main", operator: "cross above", right: "Signal; main > 0" }, 140, 250),
+      nodeSpec("Buy now", "开多", "零轴上方金叉开多", "trade", { direction: "BUY", lots: "Auto", stopLoss: 350, takeProfit: 1000 }, 140, 405),
+      nodeSpec("Condition", "MACD 死叉且主线<0", "MACD main cross below signal and main < 0", "condition", { left: "MACD main", operator: "cross below", right: "Signal; main < 0" }, 500, 250),
+      nodeSpec("Sell now", "开空", "零轴下方死叉开空", "trade", { direction: "SELL", lots: "Auto", stopLoss: 350, takeProfit: 1000 }, 500, 405),
+    ],
+    connections: [[0, 1], [1, 2], [0, 3], [3, 4]],
+  },
+  {
+    id: "triple-screen-simple",
+    name: "三重滤网（简化版）",
+    desc: "H1趋势过滤（MA方向）→ M5入场（RSI<30做多或>70做空）。",
+    projectName: "三重滤网简化 EA",
+    nodes: [
+      nodeSpec("Moving Average", "H1 MA50", "H1 趋势快线", "indicator", { indicator: "Moving Average", period: 50, timeframe: "H1", maShift: 0, maMethod: "Exponential", appliedPrice: "Close price", shift: 0 }, 90, 80),
+      nodeSpec("Moving Average", "H1 MA200", "H1 趋势慢线", "indicator", { indicator: "Moving Average", period: 200, timeframe: "H1", maShift: 0, maMethod: "Exponential", appliedPrice: "Close price", shift: 0 }, 315, 80),
+      nodeSpec("Relative Strength Index", "M5 RSI14", "M5 入场 RSI", "indicator", { indicator: "Relative Strength Index", period: 14, timeframe: "M5", appliedPrice: "Close price", shift: 0 }, 540, 80),
+      nodeSpec("Condition", "H1 多头 + M5 RSI<30", "H1 MA50 > MA200 and M5 RSI < 30", "condition", { left: "H1 MA50 > H1 MA200", operator: "AND", right: "M5 RSI14 < 30" }, 200, 265),
+      nodeSpec("Buy now", "开多", "大周期多头，小周期回调做多", "trade", { direction: "BUY", lots: "Auto", stopLoss: 400, takeProfit: 1200 }, 200, 420),
+      nodeSpec("Condition", "H1 空头 + M5 RSI>70", "H1 MA50 < MA200 and M5 RSI > 70", "condition", { left: "H1 MA50 < H1 MA200", operator: "AND", right: "M5 RSI14 > 70" }, 550, 265),
+      nodeSpec("Sell now", "开空", "大周期空头，小周期反弹做空", "trade", { direction: "SELL", lots: "Auto", stopLoss: 400, takeProfit: 1200 }, 550, 420),
+    ],
+    connections: [[0, 3], [1, 3], [2, 3], [3, 4], [0, 5], [1, 5], [2, 5], [5, 6]],
+  },
+  {
+    id: "rsi-bbands-adx-reversal",
+    name: "RSI+布林带+ADX 反转",
+    desc: "RSI<30，价格低于下轨，ADX>20 → 开多；反向对称。",
+    projectName: "RSI 布林带 ADX 反转 EA",
+    nodes: [
+      nodeSpec("Relative Strength Index", "RSI14", "RSI 周期 14", "indicator", { indicator: "Relative Strength Index", period: 14, appliedPrice: "Close price", shift: 0 }, 80, 80),
+      nodeSpec("Bollinger Bands", "布林带 20,2", "周期 20，偏差 2", "indicator", { indicator: "Bollinger Bands", period: 20, deviation: 2, bandsShift: 0, appliedPrice: "Close price", mode: "MAIN", shift: 0 }, 310, 80),
+      nodeSpec("Average Directional Movement Index", "ADX14", "ADX 周期 14，阈值 20", "indicator", { indicator: "Average Directional Movement Index", period: 14, appliedPrice: "Close price", mode: "MAIN", shift: 0 }, 540, 80),
+      nodeSpec("Condition", "低位反转做多", "RSI<30 AND Close<Lower Band AND ADX>20", "condition", { left: "RSI14 < 30; Close < Lower Band", operator: "AND", right: "ADX14 > 20" }, 210, 270),
+      nodeSpec("Buy now", "开多", "超卖且跌破下轨后做反转多", "trade", { direction: "BUY", lots: "Auto", stopLoss: 350, takeProfit: 900 }, 210, 425),
+      nodeSpec("Condition", "高位反转做空", "RSI>70 AND Close>Upper Band AND ADX>20", "condition", { left: "RSI14 > 70; Close > Upper Band", operator: "AND", right: "ADX14 > 20" }, 560, 270),
+      nodeSpec("Sell now", "开空", "超买且突破上轨后做反转空", "trade", { direction: "SELL", lots: "Auto", stopLoss: 350, takeProfit: 900 }, 560, 425),
+    ],
+    connections: [[0, 3], [1, 3], [2, 3], [3, 4], [0, 5], [1, 5], [2, 5], [5, 6]],
+  },
+];
+
+function nodeSpec(title, cn, desc, type, params, x, y) {
+  return { title, cn, desc, type, params, x, y };
+}
+
 let state = loadState();
 let contextTarget = null;
 
@@ -199,49 +315,10 @@ function loadState() {
     if (!saved) return structuredClone(defaultState);
     const parsed = JSON.parse(saved);
     if (!parsed.nodes || !parsed.connections) return structuredClone(defaultState);
-    return normalizeState(parsed);
+    return parsed;
   } catch {
     return structuredClone(defaultState);
   }
-}
-
-function normalizeState(saved) {
-  const fallback = structuredClone(defaultState);
-  const savedNodes = Array.isArray(saved.nodes) && saved.nodes.length ? saved.nodes : fallback.nodes;
-  const nodes = savedNodes.map((node, index) => ({
-    id: node.id || `b${Date.now()}${index}`,
-    title: node.title || node.cn || node.englishTitle || "未命名模块",
-    englishTitle: node.englishTitle || node.title || "",
-    desc: node.desc || "",
-    type: node.type || "control",
-    color: node.color || colorFor(node.type || "control"),
-    x: Number.isFinite(Number(node.x)) ? Number(node.x) : 120 + index * 36,
-    y: Number.isFinite(Number(node.y)) ? Number(node.y) : 80 + index * 26,
-    enabled: node.enabled !== false,
-    params: node.params && typeof node.params === "object" ? node.params : {},
-  }));
-  const nodeIds = new Set(nodes.map((node) => node.id));
-  const connections = Array.isArray(saved.connections)
-    ? saved.connections.filter(([from, to]) => nodeIds.has(from) && nodeIds.has(to))
-    : fallback.connections;
-
-  return {
-    ...fallback,
-    ...saved,
-    projectName: saved.projectName || fallback.projectName,
-    activeEvent: events.some((event) => event.id === saved.activeEvent) ? saved.activeEvent : fallback.activeEvent,
-    mode: saved.mode === "Custom" ? "Custom" : "System",
-    selectedId: nodeIds.has(saved.selectedId) ? saved.selectedId : nodes[0]?.id || null,
-    nodes,
-    connections,
-    constants: Array.isArray(saved.constants) ? saved.constants : [],
-    variables: Array.isArray(saved.variables) ? saved.variables : [],
-    history: Array.isArray(saved.history) ? saved.history : fallback.history,
-    projectOptions: {
-      ...fallback.projectOptions,
-      ...(saved.projectOptions && typeof saved.projectOptions === "object" ? saved.projectOptions : {}),
-    },
-  };
 }
 
 function saveState(message) {
@@ -266,21 +343,13 @@ function render() {
           ${menu("选项", ["当前项目选项", "项目说明", "模块 ID 规范化", "全局选项"])}
           ${menu("帮助", ["使用说明", "社区论坛", "更新历史"])}
         </nav>
-        <div class="fx-links">Instructions&nbsp;&nbsp; How To&nbsp;&nbsp; Forum&nbsp;&nbsp; <button type="button" id="openBreakoutAgent" class="ai-link" data-ai-breakout>XAUUSD AI突破分析</button></div>
+        <div class="fx-links">Instructions&nbsp;&nbsp; How To&nbsp;&nbsp; Forum</div>
         <div class="fx-plan">Free Limited</div>
       </header>
 
       <section class="fx-export">
         <button id="exportMq4">.mq4</button>
         <button id="exportEx4">.ex4</button>
-      </section>
-
-      <section class="fx-actionbar">
-        <button type="button" data-quick="analyze">运行 XAUUSD AI 分析</button>
-        <button type="button" data-quick="buy-template">生成黄金突破多单模板</button>
-        <button type="button" data-quick="sell-template">生成黄金突破空单模板</button>
-        <button type="button" data-quick="clear">清空画布</button>
-        <button type="button" data-quick="reset">重置缓存</button>
       </section>
 
       <section class="fx-events">
@@ -298,6 +367,17 @@ function render() {
           <h1>${state.projectName}</h1>
           <button class="cv-row" id="editConstants">${state.constants.length} Constants (Inputs)</button>
           <button class="cv-row variables" id="editVariables">${state.variables.length} Variables</button>
+          <section class="template-panel">
+            <strong>预设策略模板</strong>
+            <div class="template-list">
+              ${strategyTemplates.map((template) => `
+                <button type="button" class="template-item" data-template="${template.id}">
+                  ${template.name}
+                  <small>${template.desc}</small>
+                </button>
+              `).join("")}
+            </div>
+          </section>
           <div class="mode-row">
             <button class="${state.mode === "System" ? "on" : ""}" data-mode="System">System</button>
             <button class="${state.mode === "Custom" ? "on" : ""}" data-mode="Custom">Custom</button>
@@ -308,12 +388,7 @@ function render() {
 
         <section class="fx-canvas" id="canvas">
           <canvas id="lineCanvas"></canvas>
-          <div class="canvas-hint">
-            <strong>交互已启用</strong>
-            <span>左侧模块可点击添加，也可拖入画布；点击节点选中，拖动节点移动，双击编辑，右键打开菜单。</span>
-          </div>
           ${state.nodes.map(renderNode).join("")}
-          <div id="interactionStatus" class="interaction-status">等待操作</div>
           <div id="contextMenu" class="context-menu hidden">
             <button data-action="rename">Edit Title</button>
             <button data-action="toggle">On/Off</button>
@@ -429,6 +504,7 @@ function bind() {
     state.mode = btn.dataset.mode;
     saveState(`切换块库：${state.mode}`);
   }));
+  document.querySelectorAll("[data-template]").forEach((btn) => btn.addEventListener("click", () => applyStrategyTemplate(btn.dataset.template)));
   document.getElementById("blockSearch").addEventListener("input", (event) => renderCategories(event.target.value));
   const canvas = document.getElementById("canvas");
   canvas.addEventListener("dragover", (event) => event.preventDefault());
@@ -441,8 +517,6 @@ function bind() {
   document.querySelectorAll(".fx-node").forEach((el) => {
     el.addEventListener("click", () => {
       state.selectedId = el.dataset.node;
-      const node = state.nodes.find((item) => item.id === el.dataset.node);
-      showInteractionStatus(`已选中：${node?.title || "模块"}`);
       saveState();
     });
     el.addEventListener("dblclick", () => openBlockDialog(el.dataset.node));
@@ -450,20 +524,13 @@ function bind() {
     makeNodeDraggable(el);
   });
   document.querySelectorAll("[data-menu]").forEach((btn) => btn.addEventListener("click", () => handleMenu(btn.dataset.menu)));
-  document.querySelectorAll("[data-quick]").forEach((btn) => btn.addEventListener("click", () => handleQuickAction(btn.dataset.quick)));
   document.getElementById("exportMq4").addEventListener("click", () => download(`${state.projectName}.mq4`, generateMq4(), "text/plain"));
   document.getElementById("exportEx4").addEventListener("click", () => toast(".ex4 需要 MetaTrader 编译环境，已为你生成 .mq4 源码。"));
-  const aiButton = document.getElementById("openBreakoutAgent");
-  if (aiButton) aiButton.addEventListener("click", (event) => {
-    event.preventDefault();
-    openBreakoutAgent();
-  });
   document.getElementById("editConstants").addEventListener("click", () => openListDialog("constants", "Constants (Inputs)"));
   document.getElementById("editVariables").addEventListener("click", () => openListDialog("variables", "Variables"));
   document.addEventListener("click", (event) => {
     if (!event.target.closest(".context-menu")) document.getElementById("contextMenu")?.classList.add("hidden");
   }, { once: true });
-  showInteractionStatus("交互已加载，可以点击左侧模块或运行 AI 分析");
 }
 
 function addBlock(source, x, y) {
@@ -472,7 +539,6 @@ function addBlock(source, x, y) {
   state.nodes.push(node);
   if (selected) state.connections.push([selected.id, node.id]);
   state.selectedId = node.id;
-  showInteractionStatus(`已添加模块：${node.title}`);
   saveState(`添加模块：${node.title}`);
 }
 
@@ -516,7 +582,6 @@ function deleteNode(id) {
   state.nodes = state.nodes.filter((node) => node.id !== id);
   state.connections = state.connections.filter(([from, to]) => from !== id && to !== id);
   state.selectedId = state.nodes[0]?.id || null;
-  showInteractionStatus("已删除模块");
   saveState("删除模块");
 }
 
@@ -541,7 +606,6 @@ function makeNodeDraggable(el) {
     if (!start) return;
     start = null;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    showInteractionStatus("节点位置已保存");
   });
 }
 
@@ -619,81 +683,18 @@ function openListDialog(key, title) {
   };
 }
 
-function handleQuickAction(action) {
-  if (action === "analyze") {
-    openBreakoutAgent();
-    return;
-  }
-  if (action === "buy-template") {
-    applyBreakoutTemplate("Buy");
-    return;
-  }
-  if (action === "sell-template") {
-    applyBreakoutTemplate("Sell");
-    return;
-  }
-  if (action === "clear") {
-    clearCanvas();
-    return;
-  }
-  if (action === "reset") {
-    resetLocalWorkspace();
-  }
-}
-
-function applyBreakoutTemplate(direction) {
-  const isBuy = direction === "Buy";
-  const template = [
-    createNode(block("No trade", "无持仓检查", "没有持仓时才允许寻找新机会", "check", { symbol: "Current" }), 90, 80),
-    createNode(block("News filter", "重大事件过滤", "非农、CPI、FOMC、降息前后禁止交易", "news", { before: 60, after: 90, impact: "高/极高" }), 320, 80),
-    createNode(block("Moving Average", "EMA50 趋势线", "短期趋势过滤", "indicator", { indicator: "Moving Average", period: 50, maShift: 0, maMethod: "Exponential", appliedPrice: "Close price", shift: 0 }), 190, 230),
-    createNode(block("Moving Average", "EMA200 趋势线", "长期趋势过滤", "indicator", { indicator: "Moving Average", period: 200, maShift: 0, maMethod: "Exponential", appliedPrice: "Close price", shift: 0 }), 430, 230),
-    createNode(block("Average Directional Movement Index", "ADX 强度过滤", "ADX(14)>25 才允许突破交易", "indicator", { indicator: "Average Directional Movement Index", period: 14, appliedPrice: "Close price", mode: "MAIN", shift: 0 }), 670, 230),
-    createNode(block("Bollinger Bands", "布林带突破过滤", "收盘价在布林带外且带宽扩张", "indicator", { indicator: "Bollinger Bands", period: 20, deviation: 2, bandsShift: 0, appliedPrice: "Close price", mode: isBuy ? "UPPER" : "LOWER", shift: 0 }), 300, 380),
-    createNode(block("MACD", "MACD 动能确认", "MACD 与柱体方向一致", "indicator", { indicator: "MACD", fastEMA: 12, slowEMA: 26, signalSMA: 9, appliedPrice: "Close price", mode: "MAIN", shift: 0 }), 540, 380),
-    createNode(block(isBuy ? "Buy now" : "Sell now", isBuy ? "BUY BREAKOUT 入场" : "SELL BREAKOUT 入场", "按 ATR 动态止损止盈执行突破交易", "trade", { direction: isBuy ? "BUY" : "SELL", lots: "Auto", stopLoss: "ATR*1.5", takeProfit: "TP1 ATR*2 / TP2 ATR*4" }), 420, 540),
-  ];
-  state.nodes = template;
-  state.connections = [
-    [template[0].id, template[1].id],
-    [template[1].id, template[2].id],
-    [template[1].id, template[3].id],
-    [template[2].id, template[4].id],
-    [template[3].id, template[4].id],
-    [template[4].id, template[5].id],
-    [template[5].id, template[6].id],
-    [template[6].id, template[7].id],
-  ];
-  state.selectedId = template[7].id;
-  state.projectName = isBuy ? "XAUUSD 趋势突破多单 EA" : "XAUUSD 趋势突破空单 EA";
-  saveState(`生成${isBuy ? "多单" : "空单"}突破模板`);
-  toast(`已生成 ${isBuy ? "BUY" : "SELL"} BREAKOUT 策略模板`);
-}
-
-function clearCanvas() {
-  if (!confirm("确定清空当前画布模块吗？")) return;
-  state.nodes = [];
-  state.connections = [];
-  state.selectedId = null;
-  saveState("清空画布");
-  toast("画布已清空，可从左侧重新添加模块");
-}
-
-function resetLocalWorkspace() {
-  if (!confirm("确定重置本浏览器保存的项目缓存吗？")) return;
-  localStorage.removeItem(STORAGE_KEY);
-  state = structuredClone(defaultState);
-  saveState("重置缓存并恢复默认模板");
-  toast("缓存已重置，交互状态已恢复");
-}
-
-function showInteractionStatus(message) {
-  const el = document.getElementById("interactionStatus");
-  if (!el) return;
-  el.textContent = message;
-  el.classList.add("active");
-  clearTimeout(showInteractionStatus.timer);
-  showInteractionStatus.timer = setTimeout(() => el.classList.remove("active"), 1800);
+function applyStrategyTemplate(templateId) {
+  const template = strategyTemplates.find((item) => item.id === templateId);
+  if (!template) return;
+  const nodes = template.nodes.map((item) => createNode(block(item.title, item.cn, item.desc, item.type, item.params), item.x, item.y));
+  state.projectName = template.projectName;
+  state.nodes = nodes;
+  state.connections = template.connections
+    .map(([from, to]) => [nodes[from]?.id, nodes[to]?.id])
+    .filter(([from, to]) => from && to);
+  state.selectedId = nodes[0]?.id || null;
+  saveState(`套用模板：${template.name}`);
+  toast(`已生成模板：${template.name}`);
 }
 
 function handleMenu(item) {
@@ -769,6 +770,8 @@ function colorFor(type) {
   return {
     indicator: "purple",
     trade: "green",
+    action: "blue",
+    condition: "amber",
     news: "amber",
     risk: "red",
     exit: "blue",
@@ -837,383 +840,5 @@ function toast(message) {
   el.classList.add("show");
   setTimeout(() => el.classList.remove("show"), 2200);
 }
-
-function openBreakoutAgent() {
-  const candles = createXauusdCandles();
-  const result = analyzeBreakout(candles);
-  document.getElementById("modalHost").innerHTML = `
-    <div class="fx-modal ai-modal">
-      <div class="ai-card">
-        <button class="modal-close">×</button>
-        <header class="ai-head">
-          <div>
-            <h2>黄金 XAUUSD 趋势突破分析智能体</h2>
-            <p>EMA50/200 + ADX + Donchian + Bollinger + RSI + MACD + ATR + Volume 综合评分</p>
-          </div>
-          <button id="refreshAi" class="ai-button">重新分析</button>
-        </header>
-        <div class="ai-chart-wrap">
-          <canvas id="aiChart" width="1120" height="560"></canvas>
-          <aside class="ai-status">
-            <h3>AI 状态面板</h3>
-            ${statusRow("Trend", result.trend)}
-            ${statusRow("Strength", result.strength)}
-            ${statusRow("Momentum", result.momentum)}
-            ${statusRow("Volatility", result.volatility)}
-            ${statusRow("Breakout Quality", result.quality)}
-            ${statusRow("AI Score", `${result.score} / 100`)}
-            ${statusRow("Trade Decision", result.decision)}
-          </aside>
-        </div>
-        <section class="ai-summary">
-          <div><span>当前趋势方向</span><strong>${result.trend}</strong></div>
-          <div><span>是否允许交易</span><strong>${result.allowTrade ? "允许" : "禁止"}</strong></div>
-          <div><span>推荐方向</span><strong>${result.direction}</strong></div>
-          <div><span>入场位</span><strong>${fmt(result.entry)}</strong></div>
-          <div><span>止损位</span><strong>${fmt(result.stopLoss)}</strong></div>
-          <div><span>止盈位</span><strong>TP1 ${fmt(result.tp1)} / TP2 ${fmt(result.tp2)}</strong></div>
-          <div><span>风险等级</span><strong>${result.riskLevel}</strong></div>
-          <div><span>AI综合评分</span><strong>${result.score}</strong></div>
-        </section>
-        <section class="ai-tags">
-          ${result.tags.map((tag) => `<span>${tag}</span>`).join("")}
-        </section>
-      </div>
-    </div>`;
-  document.querySelector(".modal-close").onclick = () => document.getElementById("modalHost").innerHTML = "";
-  document.getElementById("refreshAi").onclick = openBreakoutAgent;
-  requestAnimationFrame(() => drawAiChart(candles, result));
-}
-
-function statusRow(label, value) {
-  return `<div class="ai-status-row"><span>${label}</span><strong>${value}</strong></div>`;
-}
-
-function createXauusdCandles() {
-  const candles = [];
-  let close = 2320;
-  for (let i = 0; i < 240; i += 1) {
-    const trend = i > 150 ? 0.72 : i > 90 ? 0.18 : -0.04;
-    const wave = Math.sin(i / 7) * 2.5 + Math.cos(i / 17) * 1.4;
-    const noise = ((i * 37) % 11 - 5) * 0.28;
-    const open = close;
-    close = close + trend + wave * 0.14 + noise;
-    if (i > 222) close += 1.45;
-    const high = Math.max(open, close) + 2.2 + ((i * 13) % 7) * 0.35;
-    const low = Math.min(open, close) - 2.0 - ((i * 17) % 5) * 0.32;
-    const volume = 820 + i * 2 + (i > 220 ? 520 : 0) + ((i * 29) % 170);
-    candles.push({ open, high, low, close, volume });
-  }
-  return candles;
-}
-
-function analyzeBreakout(candles) {
-  const closes = candles.map((c) => c.close);
-  const highs = candles.map((c) => c.high);
-  const lows = candles.map((c) => c.low);
-  const volumes = candles.map((c) => c.volume);
-  const last = candles.length - 1;
-  const ema50 = ema(closes, 50);
-  const ema200 = ema(closes, 200);
-  const adxSeries = adx(candles, 14);
-  const rsiSeries = rsi(closes, 14);
-  const macdData = macd(closes, 12, 26, 9);
-  const atrSeries = atr(candles, 14);
-  const atrAvg20 = sma(atrSeries.filter(Number.isFinite), 20);
-  const bb = bollinger(closes, 20, 2);
-  const dcHigh = Math.max(...highs.slice(last - 20, last));
-  const dcLow = Math.min(...lows.slice(last - 20, last));
-  const volumeSma20 = sma(volumes, 20);
-  const close = closes[last];
-
-  const bullishTrend = ema50[last] > ema200[last] && close > ema50[last];
-  const bearishTrend = ema50[last] < ema200[last] && close < ema50[last];
-  const trend = bullishTrend ? "Bullish" : bearishTrend ? "Bearish" : "Sideways";
-  const adxValue = adxSeries[last] || 0;
-  const adxValid = adxValue > 25;
-  const strongTrend = adxValue > 35;
-  const bullBreak = close > dcHigh;
-  const bearBreak = close < dcLow;
-  const bbWidthNow = bb.width[last] || 0;
-  const bbWidthPrev = bb.width[last - 5] || 0;
-  const bbExpand = bbWidthNow > bbWidthPrev;
-  const bbBreakBull = close > bb.upper[last];
-  const bbBreakBear = close < bb.lower[last];
-  const rsiValue = rsiSeries[last] || 50;
-  const rsiBull = rsiValue > 55;
-  const rsiBear = rsiValue < 45;
-  const macdBull = macdData.macd[last] > macdData.signal[last] && macdData.hist[last] > 0;
-  const macdBear = macdData.macd[last] < macdData.signal[last] && macdData.hist[last] < 0;
-  const histExpanding = Math.abs(macdData.hist[last]) > Math.abs(macdData.hist[last - 1]) && Math.abs(macdData.hist[last - 1]) > Math.abs(macdData.hist[last - 2]);
-  const atrValue = atrSeries[last] || 0;
-  const atrExpanded = atrValue > atrAvg20;
-  const volumeExpanded = volumes[last] > volumeSma20;
-  const direction = bullishTrend && bullBreak && bbBreakBull && rsiBull && macdBull ? "Buy" : bearishTrend && bearBreak && bbBreakBear && rsiBear && macdBear ? "Sell" : "Wait";
-
-  let score = 0;
-  if (bullishTrend || bearishTrend) score += 25;
-  if (adxValid) score += 15;
-  if (bullBreak || bearBreak) score += 20;
-  if ((bbBreakBull || bbBreakBear) && bbExpand) score += 10;
-  if ((direction === "Buy" && rsiBull) || (direction === "Sell" && rsiBear)) score += 10;
-  if ((direction === "Buy" && macdBull) || (direction === "Sell" && macdBear)) score += 10;
-  if (atrExpanded) score += 5;
-  if (volumeExpanded) score += 5;
-
-  const allowTrade = score >= 65 && adxValue >= 25 && direction !== "Wait";
-  const stopDistance = atrValue * 1.5;
-  const tp1Distance = atrValue * 2;
-  const tp2Distance = atrValue * 4;
-  const entry = close;
-  const stopLoss = direction === "Sell" ? entry + stopDistance : direction === "Buy" ? entry - stopDistance : null;
-  const tp1 = direction === "Sell" ? entry - tp1Distance : direction === "Buy" ? entry + tp1Distance : null;
-  const tp2 = direction === "Sell" ? entry - tp2Distance : direction === "Buy" ? entry + tp2Distance : null;
-  const tags = [];
-  if (strongTrend) tags.push("强趋势");
-  if (!bbExpand) tags.push("假突破风险");
-  if (histExpanding) tags.push("动能增强");
-  if (atrExpanded) tags.push("高波动");
-  if (!volumeExpanded) tags.push("低量能");
-  if (rsiValue > 70 || rsiValue < 30) tags.push("过热风险");
-  if (adxValue < 20) tags.push("ADX<20 禁止交易");
-
-  return {
-    trend,
-    direction,
-    allowTrade,
-    entry,
-    stopLoss,
-    tp1,
-    tp2,
-    score,
-    tags,
-    ema50,
-    ema200,
-    bb,
-    dcHigh,
-    dcLow,
-    atrValue,
-    strength: adxValue > 35 ? `强趋势 ADX ${fmt(adxValue)}` : adxValue > 25 ? `有效 ADX ${fmt(adxValue)}` : `弱 ADX ${fmt(adxValue)}`,
-    momentum: histExpanding ? "动能增强" : "动能普通",
-    volatility: atrExpanded ? `高波动 ATR ${fmt(atrValue)}` : `波动不足 ATR ${fmt(atrValue)}`,
-    quality: score >= 80 ? "强信号" : score >= 65 ? "可交易" : score >= 50 ? "弱信号" : "不交易",
-    decision: allowTrade ? `${direction} BREAKOUT` : "WAIT",
-    riskLevel: score >= 80 ? "中低" : score >= 65 ? "中等" : "高",
-  };
-}
-
-function drawAiChart(candles, result) {
-  const canvas = document.getElementById("aiChart");
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  const w = canvas.width;
-  const h = canvas.height;
-  const pad = { left: 54, right: 210, top: 26, bottom: 42 };
-  const chartW = w - pad.left - pad.right;
-  const chartH = h - pad.top - pad.bottom;
-  const visible = candles.slice(-110);
-  const offset = candles.length - visible.length;
-  const prices = visible.flatMap((c) => [c.high, c.low]);
-  const levels = [result.entry, result.stopLoss, result.tp1, result.tp2].filter(Number.isFinite);
-  const min = Math.min(...prices, ...levels) - 5;
-  const max = Math.max(...prices, ...levels) + 5;
-  const x = (i) => pad.left + (i / (visible.length - 1)) * chartW;
-  const y = (price) => pad.top + (max - price) / (max - min) * chartH;
-
-  ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = result.trend === "Bullish" ? "rgba(34, 197, 94, .16)" : result.trend === "Bearish" ? "rgba(239, 68, 68, .16)" : "rgba(148, 163, 184, .16)";
-  ctx.fillRect(0, 0, w, h);
-  ctx.strokeStyle = "rgba(255,255,255,.08)";
-  ctx.lineWidth = 1;
-  for (let i = 0; i < 6; i += 1) {
-    const gy = pad.top + (chartH / 5) * i;
-    ctx.beginPath();
-    ctx.moveTo(pad.left, gy);
-    ctx.lineTo(w - pad.right, gy);
-    ctx.stroke();
-  }
-
-  visible.forEach((c, i) => {
-    const cx = x(i);
-    const up = c.close >= c.open;
-    ctx.strokeStyle = up ? "#52d273" : "#ff6b6b";
-    ctx.fillStyle = up ? "#52d273" : "#ff6b6b";
-    ctx.beginPath();
-    ctx.moveTo(cx, y(c.high));
-    ctx.lineTo(cx, y(c.low));
-    ctx.stroke();
-    const bodyTop = y(Math.max(c.open, c.close));
-    const bodyBottom = y(Math.min(c.open, c.close));
-    ctx.fillRect(cx - 3, bodyTop, 6, Math.max(2, bodyBottom - bodyTop));
-  });
-
-  plotLine(ctx, result.ema50.slice(offset), x, y, "#36a3ff", visible.length);
-  plotLine(ctx, result.ema200.slice(offset), x, y, "#ffcf4a", visible.length);
-  plotLine(ctx, result.bb.upper.slice(offset), x, y, "rgba(255,255,255,.45)", visible.length);
-  plotLine(ctx, result.bb.lower.slice(offset), x, y, "rgba(255,255,255,.45)", visible.length);
-  horizontal(ctx, y(result.dcHigh), pad.left, w - pad.right, "#9f7aea", "Donchian High");
-  horizontal(ctx, y(result.dcLow), pad.left, w - pad.right, "#9f7aea", "Donchian Low");
-
-  if (Number.isFinite(result.entry)) horizontal(ctx, y(result.entry), pad.left, w - pad.right, "#ffffff", `Entry ${fmt(result.entry)}`);
-  if (Number.isFinite(result.stopLoss)) horizontal(ctx, y(result.stopLoss), pad.left, w - pad.right, "#ff4d4d", `SL ${fmt(result.stopLoss)}`);
-  if (Number.isFinite(result.tp1)) horizontal(ctx, y(result.tp1), pad.left, w - pad.right, "#2ee66b", `TP1 ${fmt(result.tp1)}`);
-  if (Number.isFinite(result.tp2)) horizontal(ctx, y(result.tp2), pad.left, w - pad.right, "#21c7b7", `TP2 ${fmt(result.tp2)}`);
-
-  const lastX = x(visible.length - 1);
-  const lastY = y(visible[visible.length - 1].close);
-  if (result.direction !== "Wait") {
-    ctx.fillStyle = result.direction === "Buy" ? "#19d66b" : "#ff4d4d";
-    ctx.beginPath();
-    if (result.direction === "Buy") {
-      ctx.moveTo(lastX, lastY - 34); ctx.lineTo(lastX - 13, lastY - 10); ctx.lineTo(lastX + 13, lastY - 10);
-    } else {
-      ctx.moveTo(lastX, lastY + 34); ctx.lineTo(lastX - 13, lastY + 10); ctx.lineTo(lastX + 13, lastY + 10);
-    }
-    ctx.closePath();
-    ctx.fill();
-    ctx.font = "bold 15px Microsoft YaHei";
-    ctx.fillText(`${result.direction.toUpperCase()} BREAKOUT`, lastX - 72, result.direction === "Buy" ? lastY - 42 : lastY + 54);
-  }
-
-  ctx.fillStyle = "#d7e0ea";
-  ctx.font = "12px Microsoft YaHei";
-  ctx.fillText("EMA50", pad.left + 8, 18);
-  ctx.fillStyle = "#36a3ff";
-  ctx.fillRect(pad.left + 52, 10, 28, 3);
-  ctx.fillStyle = "#d7e0ea";
-  ctx.fillText("EMA200", pad.left + 92, 18);
-  ctx.fillStyle = "#ffcf4a";
-  ctx.fillRect(pad.left + 148, 10, 28, 3);
-}
-
-function plotLine(ctx, data, x, y, color, maxLen) {
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  let started = false;
-  data.slice(0, maxLen).forEach((value, i) => {
-    if (!Number.isFinite(value)) return;
-    if (!started) {
-      ctx.moveTo(x(i), y(value));
-      started = true;
-    } else {
-      ctx.lineTo(x(i), y(value));
-    }
-  });
-  ctx.stroke();
-}
-
-function horizontal(ctx, yy, x1, x2, color, label) {
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 1.5;
-  ctx.setLineDash([7, 5]);
-  ctx.beginPath();
-  ctx.moveTo(x1, yy);
-  ctx.lineTo(x2, yy);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.fillStyle = color;
-  ctx.font = "12px Microsoft YaHei";
-  ctx.fillText(label, x2 + 8, yy + 4);
-}
-
-function ema(values, period) {
-  const out = [];
-  const k = 2 / (period + 1);
-  let prev = values[0];
-  values.forEach((value, i) => {
-    prev = i === 0 ? value : value * k + prev * (1 - k);
-    out.push(prev);
-  });
-  return out;
-}
-
-function sma(values, period) {
-  const slice = values.slice(-period).filter(Number.isFinite);
-  return slice.reduce((sum, value) => sum + value, 0) / Math.max(slice.length, 1);
-}
-
-function rsi(values, period) {
-  const out = Array(values.length).fill(null);
-  for (let i = period; i < values.length; i += 1) {
-    let gain = 0;
-    let loss = 0;
-    for (let j = i - period + 1; j <= i; j += 1) {
-      const diff = values[j] - values[j - 1];
-      if (diff >= 0) gain += diff;
-      else loss -= diff;
-    }
-    const rs = gain / Math.max(loss, 0.0001);
-    out[i] = 100 - 100 / (1 + rs);
-  }
-  return out;
-}
-
-function atr(candles, period) {
-  const tr = candles.map((c, i) => {
-    if (i === 0) return c.high - c.low;
-    const prev = candles[i - 1].close;
-    return Math.max(c.high - c.low, Math.abs(c.high - prev), Math.abs(c.low - prev));
-  });
-  return ema(tr, period);
-}
-
-function adx(candles, period) {
-  const plusDm = [0];
-  const minusDm = [0];
-  const tr = [candles[0].high - candles[0].low];
-  for (let i = 1; i < candles.length; i += 1) {
-    const up = candles[i].high - candles[i - 1].high;
-    const down = candles[i - 1].low - candles[i].low;
-    plusDm.push(up > down && up > 0 ? up : 0);
-    minusDm.push(down > up && down > 0 ? down : 0);
-    tr.push(Math.max(candles[i].high - candles[i].low, Math.abs(candles[i].high - candles[i - 1].close), Math.abs(candles[i].low - candles[i - 1].close)));
-  }
-  const atrSmoothed = ema(tr, period);
-  const plus = ema(plusDm, period).map((v, i) => 100 * v / Math.max(atrSmoothed[i], 0.0001));
-  const minus = ema(minusDm, period).map((v, i) => 100 * v / Math.max(atrSmoothed[i], 0.0001));
-  const dx = plus.map((v, i) => 100 * Math.abs(v - minus[i]) / Math.max(v + minus[i], 0.0001));
-  return ema(dx, period);
-}
-
-function macd(values, fast, slow, signalPeriod) {
-  const fastLine = ema(values, fast);
-  const slowLine = ema(values, slow);
-  const macdLine = fastLine.map((value, i) => value - slowLine[i]);
-  const signal = ema(macdLine, signalPeriod);
-  const hist = macdLine.map((value, i) => value - signal[i]);
-  return { macd: macdLine, signal, hist };
-}
-
-function bollinger(values, period, deviation) {
-  const upper = [];
-  const lower = [];
-  const middle = [];
-  const width = [];
-  values.forEach((value, i) => {
-    const slice = values.slice(Math.max(0, i - period + 1), i + 1);
-    const mean = slice.reduce((sum, v) => sum + v, 0) / slice.length;
-    const variance = slice.reduce((sum, v) => sum + (v - mean) ** 2, 0) / slice.length;
-    const sd = Math.sqrt(variance);
-    middle.push(mean);
-    upper.push(mean + deviation * sd);
-    lower.push(mean - deviation * sd);
-    width.push((upper[i] - lower[i]) / Math.max(mean, 0.0001));
-  });
-  return { upper, lower, middle, width };
-}
-
-function fmt(value) {
-  return Number.isFinite(value) ? Number(value).toFixed(2) : "-";
-}
-
-document.addEventListener("click", (event) => {
-  if (!event.target.closest("[data-ai-breakout], #openBreakoutAgent")) return;
-  event.preventDefault();
-  event.stopPropagation();
-  openBreakoutAgent();
-}, true);
-
-window.openBreakoutAgent = openBreakoutAgent;
 
 render();
